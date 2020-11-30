@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Alpha\Handlers\Commands\SendCommandToBetaHandler.cs" />
+    <Compile Remove="Alpha\Handlers\Events\BetaEventHandler.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--<PackageReference Include="NServiceBus.IntegrationTesting" Version="0.6.0" />-->
+    <PackageReference Include="NUnit" Version="3.12.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\NServiceBus.IntegrationTesting\src\NServiceBus.IntegrationTesting\NServiceBus.IntegrationTesting.csproj" />
+    <ProjectReference Include="..\NServiceBus.Transport.InMemory\NServiceBus.Transport.InMemory.csproj" />
+  </ItemGroup>
+
+</Project>

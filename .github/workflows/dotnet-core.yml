@@ -2,24 +2,68 @@ name: .NET Core
 
 on:
   push:
-    branches: [ master ]
+    paths-ignore:
+      - 'README.md'
+    branches:
+      - master
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+
+env:
+  SLN_FILE: './src/NServiceBus.InMemory.sln'
+  PACKAGE_LOCATION: './src/NServiceBus.Transport.InMemory/bin/Release/*.nupkg'
+
+  CONFIGURATION: Release
+
+  # no spam
+  DOTNET_NOLOGO: true
+
+  # notracking
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  build:
 
+  build:
+    name: build with .NET Core
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      
+    - name: Fetch all history for all tags and branches
+      run: git fetch --prune --unshallow    
+    
     - uses: actions/checkout@v2
+
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 3.1.301
-    - name: Install dependencies
-      run: dotnet restore
+        dotnet-version: 3.1.101
+        source-url: https://nuget.pkg.github.com/stevewgh/index.json
+      env:
+        NUGET_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0.9.2
+      with:
+          versionSpec: '5.2.x'
+
+    - name: Use GitVersion
+      id: gitversion # step id used as reference for output values
+      uses: gittools/actions/gitversion/execute@v0.9.2
+
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build ${{env.SLN_FILE}} /p:AssemblyVersion=${{steps.gitversion.outputs.AssemblySemVer}} --configuration ${{env.CONFIGURATION}}
+
     - name: Test
-      run: dotnet test --no-restore --verbosity normal
+      run: dotnet test ${{env.SLN_FILE}} --no-restore --no-build --verbosity normal --configuration ${{env.CONFIGURATION}}
+
+    - name: Pack
+      run: dotnet pack ${{env.SLN_FILE}} -p:PackageVersion=${{steps.gitversion.outputs.SemVer}} --no-build
+
+    - name: Publish to GitHub Packages
+      if: github.ref != 'refs/heads/master'
+      run: 
+        dotnet nuget push ${{env.PACKAGE_LOCATION}} --skip-duplicate

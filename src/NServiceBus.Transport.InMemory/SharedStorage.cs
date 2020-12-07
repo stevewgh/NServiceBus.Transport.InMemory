@@ -5,7 +5,6 @@
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading;
-    using DelayedDelivery;
     using DeliveryConstraints;
     using Extensibility;
 
@@ -31,9 +30,13 @@
 
         public void Publish(OutgoingMessage message, Type messageType)
         {
+            var messageTypes = new List<Type> { messageType };
+            messageTypes.AddRange(messageType.GetInterfaces());
+            if (messageType.BaseType != null) messageTypes.Add(messageType.BaseType);
+
             foreach (var storage in this.endpointStorage)
             {
-                storage.Value.EnqueueIfSubscribed(message, messageType);
+                storage.Value.EnqueueIfSubscribed(message, messageTypes);
             }
         }
 
@@ -100,28 +103,9 @@
 
         public void Subscribe(Type eventType)
         {
-            while (true)
+            if (!this.subscriptions.Contains(eventType))
             {
-                if (!this.subscriptions.Contains(eventType))
-                {
-                    this.subscriptions.Add(eventType);
-
-                    if (eventType.BaseType != null && eventType.BaseType != typeof(object))
-                    {
-                        eventType = eventType.BaseType;
-                        continue;
-                    }
-                }
-
-                break;
-            }
-
-            foreach (var iType in eventType.GetInterfaces())
-            {
-                if (!this.subscriptions.Contains(iType))
-                {
-                    this.subscriptions.Add(iType);
-                }
+                this.subscriptions.Add(eventType);
             }
         }
 
@@ -133,14 +117,16 @@
             }
         }
 
-        public void EnqueueIfSubscribed(OutgoingMessage message, Type messageType)
+        public void EnqueueIfSubscribed(OutgoingMessage message, IEnumerable<Type> messageTypes)
         {
-            if (this.subscriptions.Contains(messageType))
+            foreach (var messageType in messageTypes)
             {
-                this.Enqueue(message, new List<DeliveryConstraint>());
+                if (this.subscriptions.Contains(messageType))
+                {
+                    this.Enqueue(message, new List<DeliveryConstraint>());
+                }
             }
         }
-
 
         private interface IInMemoryMessageContext
         {

@@ -55,19 +55,31 @@
                 throw new Exception($"{nameof(OnMessage)} should be set in the Init method");
             }
 
+            MessageContext? message = null;
             try
             {
                 while (!this.cancellationTokenSource.IsCancellationRequested)
                 {
-                    var message = SharedStorage.Instance.Query(this.endpointName);
+                    message = SharedStorage.Instance.Query(this.endpointName);
 
-                    if (message != null) await OnMessage(message);
+                    if (message != null) await this.OnMessage(message);
 
                     await Task.Delay(TimeSpan.FromSeconds(1), this.cancellationTokenSource.Token);
                 }
             }
-            catch (OperationCanceledException) when(this.cancellationTokenSource.IsCancellationRequested)
+            catch (OperationCanceledException) when (this.cancellationTokenSource.IsCancellationRequested)
             {
+            }
+            catch (Exception exception)
+            {
+                try
+                {
+                    await this.OnError!(new ErrorContext(exception, message?.Headers, message?.MessageId, message?.Body, null, 1));
+                }
+                catch (Exception innerException)
+                {
+                    this.Error!.Raise("Failed to execute recoverability policy.", innerException);
+                }
             }
         }
 

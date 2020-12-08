@@ -11,7 +11,7 @@ on:
       - master
 
 env:
-  SLN_FILE: './src/NServiceBus.InMemory.sln'
+  SLN_FILE: './src/NServiceBus.Transport.InMemory.sln'
   PACKAGE_LOCATION: './src/NServiceBus.Transport.InMemory/bin/Release/*.nupkg'
 
   CONFIGURATION: Release

@@ -21,3 +21,13 @@ env:
 
   # notracking
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+
+  build:
+    name: build with .NET Core
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2

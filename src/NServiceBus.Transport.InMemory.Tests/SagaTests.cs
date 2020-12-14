@@ -4,12 +4,12 @@
     using System.Linq;
     using System.Threading.Tasks;
     using AcceptanceTesting;
-    using Alpha.Handlers.Sagas;
-    using Alpha.Messages.Commands;
-    using Alpha.Messages.Events;
-    using Helpers;
     using IntegrationTesting;
+    using Messages.Commands;
+    using Messages.Events;
     using NUnit.Framework;
+    using Orders;
+    using Orders.Handlers;
 
     [TestFixture]
     public class SagaTests
@@ -22,12 +22,12 @@
             {
                 get
                 {
-                    var result = this.MessageWasProcessedBySaga<StartAlphaSaga, TestSaga>();
+                    var result = this.MessageWasProcessedBySaga<StartOrderSaga, OrderSaga>();
                     if (!result) return false;
 
-                    var message = this.InvokedSagas.First(operation => operation.MessageType == typeof(StartAlphaSaga))?.Message;
+                    var message = this.InvokedSagas.First(operation => operation.MessageType == typeof(StartOrderSaga))?.Message;
 
-                    if (!(message is StartAlphaSaga commandHandledEvent)) return false;
+                    if (!(message is StartOrderSaga commandHandledEvent)) return false;
 
                     Assert.AreEqual(SagaId, commandHandledEvent.SagaId, "The start saga command sent does not match the test saga.");
                     return true;
@@ -38,12 +38,12 @@
             {
                 get
                 {
-                    var result = this.MessageWasProcessedBySaga<AlphaSagaTimeout, TestSaga>();
+                    var result = this.MessageWasProcessedBySaga<OrderSagaTimeout, OrderSaga>();
                     if (!result) return false;
 
-                    var message = this.InvokedSagas.First(operation => operation.MessageType == typeof(AlphaSagaTimeout))?.Message;
+                    var message = this.InvokedSagas.First(operation => operation.MessageType == typeof(OrderSagaTimeout))?.Message;
 
-                    if (!(message is AlphaSagaTimeout commandHandledEvent)) return false;
+                    if (!(message is OrderSagaTimeout commandHandledEvent)) return false;
 
                     Assert.AreEqual(SagaId, commandHandledEvent.SagaId, "The saga timeout command sent does not match the test saga.");
                     return true;
@@ -54,12 +54,12 @@
             {
                 get
                 {
-                    var result = this.MessageWasProcessedBySaga<StopAlphaSaga, TestSaga>();
+                    var result = this.MessageWasProcessedBySaga<StopOrderSaga, OrderSaga>();
                     if (!result) return false;
 
-                    var message = this.InvokedSagas.First(operation => operation.MessageType == typeof(StopAlphaSaga))?.Message;
+                    var message = this.InvokedSagas.First(operation => operation.MessageType == typeof(StopOrderSaga))?.Message;
 
-                    if (!(message is StopAlphaSaga commandHandledEvent)) return false;
+                    if (!(message is StopOrderSaga commandHandledEvent)) return false;
 
                     Assert.AreEqual(SagaId, commandHandledEvent.SagaId, "The stop saga command sent does not match the test saga.");
                     return true;
@@ -71,12 +71,12 @@
             {
                 get
                 {
-                    var result = this.MessageWasProcessedBySaga<StopAlphaSaga, TestSaga>();
+                    var result = this.MessageWasProcessedBySaga<StopOrderSaga, OrderSaga>();
                     if (!result) return false;
 
-                    var message = this.OutgoingMessageOperations.First(operation => operation.MessageType == typeof(AlphaSagaCompleted))?.MessageInstance;
+                    var message = this.OutgoingMessageOperations.First(operation => operation.MessageType == typeof(OrderSagaCompleted))?.MessageInstance;
 
-                    if (!(message is AlphaSagaCompleted commandHandledEvent)) return false;
+                    if (!(message is OrderSagaCompleted commandHandledEvent)) return false;
 
                     Assert.AreEqual(SagaId, commandHandledEvent.SagaId, "The saga completed event sent does not match the test saga.");
                     return true;
@@ -92,11 +92,11 @@
 
             var context = await
                 Scenario.Define<SagaTestsContext>()
-                    .WithEndpoint<AlphaServer>(behavior =>
+                    .WithEndpoint<OrdersEndpoint>(behavior =>
                     {
                         behavior.When(async (session, ctx) =>
                         {
-                            await session.SendLocal(new StartAlphaSaga
+                            await session.SendLocal(new StartOrderSaga
                             {
                                 SagaId = ctx.SagaId = Guid.NewGuid(),
                                 TimeoutInSeconds = 5

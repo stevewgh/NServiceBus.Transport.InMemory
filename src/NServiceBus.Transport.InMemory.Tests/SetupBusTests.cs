@@ -3,9 +3,10 @@
     using System;
     using System.Threading.Tasks;
     using AcceptanceTesting;
-    using Helpers;
     using IntegrationTesting;
     using NUnit.Framework;
+    using Orders;
+    using Payments;
 
     [TestFixture]
     public class SetupBusTests
@@ -15,8 +16,8 @@
         {
             var context = await
                 Scenario.Define<IntegrationScenarioContext>()
-                    .WithEndpoint<AlphaServer>()
-                    .WithEndpoint<BetaServer>()
+                    .WithEndpoint<OrdersEndpoint>()
+                    .WithEndpoint<PaymentsEndpoint>()
                     .Done(ctx => ctx.EndpointsStarted)
                     .Run(TimeSpan.FromSeconds(30));
 

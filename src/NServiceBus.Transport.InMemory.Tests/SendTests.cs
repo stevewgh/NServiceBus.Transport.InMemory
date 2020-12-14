@@ -4,13 +4,12 @@
     using System.Linq;
     using System.Threading.Tasks;
     using AcceptanceTesting;
-    using Alpha.Handlers.Commands;
-    using Alpha.Messages.Commands;
-    using Alpha.Messages.Events;
-    using Beta.Messages.Commands;
-    using Helpers;
     using IntegrationTesting;
+    using Messages.Commands;
+    using Messages.Events;
     using NUnit.Framework;
+    using Orders;
+    using Payments;
 
     [TestFixture]
     public class SendTests
@@ -19,189 +18,79 @@
         {
             public Guid CommandId { get; set; }
 
-            public bool CommandHandledEventPublished
+            public bool OrderCreatedEventPublished
             {
                 get
                 {
-                    var result = this.MessageWasProcessedByHandler<AlphaCommand, AlphaCommandHandler>();
-                    if (!result) return false;
+                    var message = this.OutgoingMessageOperations.FirstOrDefault(operation => operation.MessageType == typeof(OrderCreated))?.MessageInstance;
 
-                    var message = this.OutgoingMessageOperations.First(operation => operation.MessageType == typeof(CommandProcessedInAlpha))?.MessageInstance;
-
-                    if (!(message is CommandProcessedInAlpha commandHandledEvent)) return false;
+                    if (!(message is OrderCreated commandHandledEvent)) return false;
 
                     Assert.AreEqual(CommandId, commandHandledEvent.Id, "The event published does not match the command sent.");
                     return true;
                 }
             }
 
-            public bool SendCommandHandled
+            public bool OrderCancelledPublished
             {
                 get
                 {
-                    var result = this.MessageWasProcessedByHandler<AlphaCommand, AlphaCommandHandler>();
-                    if (!result) return false;
+                    var message = this.OutgoingMessageOperations.FirstOrDefault(operation => operation.MessageType == typeof(IOrderCancelled))?.MessageInstance;
 
-                    var message = this.InvokedHandlers.FirstOrDefault(invocation => invocation.HandlerType == typeof(AlphaCommandHandler))?.Message;
+                    if (!(message is IOrderCancelled eventHandled)) return false;
 
-                    if (!(message is AlphaCommand command)) return false;
-                    
-                    Assert.AreEqual(CommandId, command.Id, "The command sent does not match the command handled.");
+                    Assert.AreEqual(CommandId, eventHandled.Id, "The event published does not match the command sent.");
                     return true;
                 }
             }
 
-            public virtual bool TestComplete => SendCommandHandled && CommandHandledEventPublished;// && BetaCommandHandled;
-
             public override string ToString()
             {
-                return $"{nameof(SendCommandHandled)} {SendCommandHandled}\n{nameof(CommandHandledEventPublished)} {CommandHandledEventPublished}";
-            }
-        }
-
-        public class SendTestsMultiEndpointContext : IntegrationScenarioContext
-        {
-            public Guid CommandId { get; set; }
-
-            public bool BetaCommandHandled
-            {
-                get
-                {
-                    var result = this.MessageWasProcessedByHandler<AlphaCommand, AlphaCommandHandler>();
-                    if (!result) return false;
-
-                    var message = this.InvokedHandlers.FirstOrDefault(invocation => invocation.HandlerType == typeof(AlphaCommandHandler))?.Message;
-
-                    if (!(message is AlphaCommand commandHandledEvent)) return false;
-
-                    if (NotBefore != null && DateTime.UtcNow < NotBefore)
-                    {
-                        throw new Exception("Command arrived too early");
-                    }
-
-                    Assert.AreEqual(CommandId, commandHandledEvent.Id, "The event published does not match the command sent.");
-                    return true;
-                }
-            }
-
-            public bool TestComplete => BetaCommandHandled;
-
-            public DateTime? NotBefore { get; set; }
-
-            public override string ToString()
-            {
-                return $"{nameof(BetaCommandHandled)} {BetaCommandHandled}";
+                return $"{nameof(OrderCancelledPublished)} {OrderCancelledPublished}\n{nameof(OrderCreatedEventPublished)} {OrderCreatedEventPublished}";
             }
         }
 
         [Test]
-        public async Task SendingACommandAndWaitingForAnEventToBePublished()
+        public async Task When_An_Order_Is_Created_Then_An_Order_Created_Event_Is_Published()
         {
             var context = await
                 Scenario.Define<SendTestsContext>()
-                    .WithEndpoint<AlphaServer>(behavior =>
+                    .WithEndpoint<OrdersEndpoint>(behavior =>
                     {
                         behavior.When(async (session, ctx) =>
                         {
-                            await session.SendLocal(new AlphaCommand
+                            await session.SendLocal(new CreateOrderCommand
                             {
                                 Id = ctx.CommandId = Guid.NewGuid()
                             });
                         });
                     })
-                    .Done(ctx => ctx.TestComplete)
+                    .Done(ctx => ctx.OrderCreatedEventPublished)
                     .Run(TimeSpan.FromSeconds(15));
 
-            Assert.True(context.TestComplete, context.ToString());
+            Assert.True(context.OrderCreatedEventPublished, context.ToString());
         }
 
         [Test]
-        public async Task DeferringACommandAndWaitingForAnEventToBePublished()
+        public async Task When_Fraud_Is_Detected_Then_The_Order_Is_Cancelled_And_The_Payment_Is_Cancelled()
         {
             var context = await
-                Scenario.Define<SendTestsMultiEndpointContext>()
-                    .WithEndpoint<AlphaServer>(builder =>
+                Scenario.Define<SendTestsContext>()
+                    .WithEndpoint<OrdersEndpoint>()
+                    .WithEndpoint<PaymentsEndpoint>(builder =>
                     {
                         builder.When(async (session, ctx) =>
                         {
-                            // first command should never be used, but the second one should
-                            var sendOptions = new SendOptions();
-                            sendOptions.RouteToThisEndpoint();
-                            sendOptions.DelayDeliveryWith(TimeSpan.FromDays(1));
-
-                            await session.Send(new AlphaCommand
-                                {
-                                    Id = ctx.CommandId = Guid.NewGuid()
-                                },
-                                sendOptions);
-
-                            sendOptions = new SendOptions();
-                            sendOptions.RouteToThisEndpoint();
-                            sendOptions.DelayDeliveryWith(TimeSpan.FromSeconds(15));
-
-                            ctx.NotBefore = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-
-                            await session.Send(new AlphaCommand
-                                {
-                                    Id = ctx.CommandId = Guid.NewGuid()
-                                },
-                                sendOptions);
-                        });
-                    })
-                    .Done(ctx => ctx.TestComplete)
-                    .Run(TimeSpan.FromSeconds(300));
-
-            Assert.True(context.TestComplete, context.ToString());
-        }
-
-        [Test]
-        public async Task DeferringACommandWithNotBeforeAndWaitingForAnEventToBePublished()
-        {
-            var context = await
-                Scenario.Define<SendTestsMultiEndpointContext>()
-                    .WithEndpoint<AlphaServer>(builder =>
-                    {
-                        builder.When(async (session, ctx) =>
-                        {
-                            var sendOptions = new SendOptions();
-                            sendOptions.RouteToThisEndpoint();
-                            sendOptions.DoNotDeliverBefore(DateTime.UtcNow + TimeSpan.FromSeconds(15));
-
-                            ctx.NotBefore = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-
-                            await session.Send(new AlphaCommand
-                                {
-                                    Id = ctx.CommandId = Guid.NewGuid()
-                                },
-                                sendOptions);
-                        });
-                    })
-                    .Done(ctx => ctx.TestComplete)
-                    .Run(TimeSpan.FromSeconds(300));
-
-            Assert.True(context.TestComplete, context.ToString());
-        }
-
-        [Test]
-        public async Task SendCommandFromOneEndpointToAnother()
-        {
-            var context = await
-                Scenario.Define<SendTestsMultiEndpointContext>()
-                    .WithEndpoint<AlphaServer>()
-                    .WithEndpoint<BetaServer>(builder =>
-                    {
-                        builder.When(async (session, ctx) =>
-                        {
-                            await session.SendLocal(new SendCommandToAlpha()
+                            await session.SendLocal(new FraudDetectedCommand
                             {
                                 Id = ctx.CommandId = Guid.NewGuid()
                             });
                         });
                     })
-                    .Done(ctx => ctx.TestComplete)
+                    .Done(ctx => ctx.OrderCancelledPublished)
                     .Run(TimeSpan.FromSeconds(15));
 
-            Assert.True(context.TestComplete, context.ToString());
+            Assert.True(context.OrderCancelledPublished, context.ToString());
         }
     }
 }

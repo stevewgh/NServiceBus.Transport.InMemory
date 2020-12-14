@@ -21,7 +21,7 @@
         public override TransportReceiveInfrastructure ConfigureReceiveInfrastructure()
         {
             return new TransportReceiveInfrastructure(
-                () => new MessagePump(settings.EndpointName),
+                () => new MessagePump(settings),
                 () => new QueueCreator(settings.EndpointName),
                 () => Task.FromResult(StartupCheckResult.Success));
         }

@@ -28,6 +28,19 @@ You can still configure routing for commands
 transport.Routing().RouteToEndpoint(typeof(OrderPlacedCommand), "Payments");
 ```
 
+Event subscriptions will be automatically managed because the transport supports them natively.
+
+## Additional Configuration
+
+You can configure the default polling interval, which is how long the tranport waits before checking for new messages. 
+The default value is 250ms but you can change it to any value so long as it's greater than zero and less than 1 minute.
+
+``` c#
+var config = new EndpointConfiguration("Orders");
+var transport = config.UseTransport<InMemoryTransport>();
+transport.PollingTime(TimeSpan.FromSeconds(1));
+```
+
 ## Transport Limitations
 
 ### Warning: Do not use this in transport in Production, you will lose data

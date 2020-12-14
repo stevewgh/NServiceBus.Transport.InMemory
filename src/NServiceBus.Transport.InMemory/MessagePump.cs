@@ -11,14 +11,14 @@
         private CriticalError? Error { get; set; }
         private PushSettings? Settings { get; set; }
 
-        private readonly string endpointName;
+        private readonly InMemorySettings inMemorySettings;
         private CancellationTokenSource? cancellationTokenSource;
         private Task? receiveLoopTask;
 
-        public MessagePump(string endpointName)
+        public MessagePump(InMemorySettings inMemorySettings)
         {
-            Guard.AgainstNullAndEmpty(nameof(endpointName), endpointName);
-            this.endpointName = endpointName;
+            Guard.AgainstNull(nameof(inMemorySettings), inMemorySettings);
+            this.inMemorySettings = inMemorySettings;
         }
 
         public Task Init(Func<MessageContext, Task> onMessage, Func<ErrorContext, Task<ErrorHandleResult>> onError, CriticalError criticalError, PushSettings settings)
@@ -60,11 +60,11 @@
             {
                 while (!this.cancellationTokenSource.IsCancellationRequested)
                 {
-                    message = SharedStorage.Instance.Query(this.endpointName);
+                    message = SharedStorage.Instance.Query(this.inMemorySettings.EndpointName);
 
                     if (message != null) await this.OnMessage(message);
 
-                    await Task.Delay(TimeSpan.FromSeconds(1), this.cancellationTokenSource.Token);
+                    await Task.Delay(this.inMemorySettings.PollingTime, this.cancellationTokenSource.Token);
                 }
             }
             catch (OperationCanceledException) when (this.cancellationTokenSource.IsCancellationRequested)

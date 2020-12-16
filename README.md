@@ -41,6 +41,33 @@ var transport = config.UseTransport<InMemoryTransport>();
 transport.PollingTime(TimeSpan.FromSeconds(1));
 ```
 
+## Examples
+
+I recommend that you take a look at the [SendTests.cs](https://github.com/stevewgh/NServiceBus.Transport.InMemory/blob/ce7c87896bbbe1d7cb45770316901796c7a4c7ef/src/NServiceBus.Transport.InMemory.Tests/SendTests.cs#L54) test class which makes use of the excellent [NServiceBus.IntegrationTesting library by Mauro Servienti](https://github.com/mauroservienti/NServiceBus.IntegrationTesting/). Just swap out the Learning transport for the InMemory transport (in Mauro's examples) and you have a very clean test.
+
+Alternatively, you can use an AAA/GWT approach to testing the endpoints.
+
+``` c#
+[Test]
+public async Task Given_An_Endpoint_When_Receiving_A_Command_Then_The_3rd_Party_Is_Called()
+{
+    var thirdParty = new Mock<IThirdPartyClient>();
+    var config = new EndpointConfiguration("TestEndpoint");
+    config.UseTransport<InMemoryTransport>();
+    config.DisableFeature<Sagas>();
+    config.Conventions().DefiningCommandsAs(t => t == typeof(ICommandToDoWork));
+    config.RegisterComponents(c => c.RegisterSingleton(thirdParty.Object));
+    var endpoint = await Endpoint.Start(config);
+    
+    await Task.WhenAll(
+        endpoint.SendLocal<ICommandToDoWork>(command => command.Id = Guid.NewGuid()),
+        Task.Delay(TimeSpan.FromSeconds(5)));
+    await endpoint.Stop();
+
+    thirdParty.Verify(client => client.Send(), Times.Once);
+}
+```
+
 ## Transport Limitations
 
 ### Warning: Do not use this in transport in Production, you will lose data

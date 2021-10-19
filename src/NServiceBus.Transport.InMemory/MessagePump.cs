@@ -85,8 +85,14 @@
 
         public async Task Stop()
         {
-            this.cancellationTokenSource?.Cancel();
-            if (this.receiveLoopTask != null) await this.receiveLoopTask;
+            try
+            {
+                this.cancellationTokenSource?.Cancel();
+                if (this.receiveLoopTask != null) await this.receiveLoopTask;
+            } finally
+            {
+                SharedStorage.Instance.Clear();
+            }
         }
     }
 }

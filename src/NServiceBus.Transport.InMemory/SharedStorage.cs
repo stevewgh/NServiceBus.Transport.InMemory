@@ -51,6 +51,11 @@
             var storage = this.endpointStorage.GetOrAdd(endpointName, new EndpointStorage(endpointName));
             storage.Unsubscribe(eventType);
         }
+
+        public void Clear()
+        {
+            this.endpointStorage.Clear();
+        }
     }
 
     internal class EndpointStorage
